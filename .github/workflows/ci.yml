@@ -1,5 +1,5 @@
 # Builds and tests on Linux x86-64 (where the SHA-NI, PCLMULQDQ and VPCLMULQDQ paths run, if the runner's CPU has
-# them) and on Linux arm64, with Swift 6.4.2.
+# them) and on Linux arm64, with Swift 6.4.2 installed by scripts/install-swift.sh (which this checks too).
 name: ci
 on:
   push:
@@ -12,24 +12,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - runner: ubuntu-24.04
-            tarball: ubuntu2404/swift-6.4.2-RELEASE/swift-6.4.2-RELEASE-ubuntu24.04.tar.gz
-          - runner: ubuntu-24.04-arm
-            tarball: ubuntu2404-aarch64/swift-6.4.2-RELEASE/swift-6.4.2-RELEASE-ubuntu24.04-aarch64.tar.gz
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
-      - name: Swift 6.4.2
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq binutils git libc6-dev libcurl4-openssl-dev libedit2 libgcc-13-dev libncurses-dev \
-            libsqlite3-0 libstdc++-13-dev libxml2-dev libz3-dev pkg-config tzdata unzip zlib1g-dev
-          sudo mkdir -p /opt/swift
-          curl -fsSL "https://download.swift.org/swift-6.4.2-release/${{ matrix.tarball }}" \
-            | sudo tar -C /opt/swift -xz --strip-components=1 --exclude='usr/bin/lldb*' --exclude='usr/lib/liblldb*' \
-              --exclude='usr/bin/sourcekit-lsp' --exclude='usr/lib/libsourcekitdInProc.so' --exclude='usr/bin/docc'
-          echo /opt/swift/usr/bin >> "$GITHUB_PATH"
+      - name: Swift 6.4.2, through the install script
+        run: sudo SWIFT_VERSION=6.4.2 bash scripts/install-swift.sh
       - name: the CPU
         run: |
           lscpu | grep -E 'Model name|Architecture'

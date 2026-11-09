@@ -87,8 +87,20 @@ for those workloads and are there as examples, not settings to copy.
 | `Bcrypt` | bcrypt (`$2b$`): one hash, or several in lockstep so their S-box loads overlap; the lane count is calibrated on first use |
 | `EventLoop` | an executor for actors on a thread of its own, sleeping in `epoll_wait`; an actor on it can wait on its sockets in the same call (Linux) |
 | `IORing` | io_uring over its system calls: rings, typed requests, completions, registered files, provided buffers (Linux) |
+| `Buffers` | noncopyable buffers that own their memory: `ByteBuffer` (appends are a capacity check and a `memcpy`; a whole response written through an `OutputRawSpan` in one reservation), `UniqueArray` of noncopyable elements, `Fifo` |
+| `JSON` | JSON read without building anything (the members you name, as places in the bytes) and written 32 bytes at a time |
+| `HTTP` | HTTP/1.1 requests parsed in place, pipelined, chunked, `Expect: 100-continue`; response heads |
+| `JWT` | HS256 tokens verified in place (signature first, in constant time; `exp`, `nbf`, `iat` against your clock), strict base64url |
+| `FastCollections` | a hash index into your own array of keys, a multiply hasher, and an unstable sort in place with the comparison inlined |
 
 Each module declares the system calls it uses itself (`@_extern(c)`), so any one can be copied out alone.
+
+The documentation, with every module's API and these notes, is at
+[akbashev.github.io/swift-underlord](https://akbashev.github.io/swift-underlord/) (built by `scripts/build-docs.sh`).
+
+**Installing Swift on a small server.** `scripts/install-swift.sh` installs a release toolchain on Ubuntu 22.04 or
+24.04 (x86-64 or arm64): unpacked as it downloads, its signature checked on the way, and without the debugger, editor
+and documentation tools, so it needs about 2.6 GB of disk instead of a 4.8 GB peak.
 
 **Using them.** Swift 6.2 or later (tested with 6.4.2), on Linux x86-64 and arm64, and macOS 27. The `X86Extensions`
 trait (on by default) builds the x86 paths, whose modules use unsafe flags (`-Xcc -msha` and the like); turn it off for

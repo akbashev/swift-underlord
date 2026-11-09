@@ -28,6 +28,11 @@ let package = Package(
         .library(name: "Bcrypt", targets: ["Bcrypt"]),
         .library(name: "EventLoop", targets: ["EventLoop"]),
         .library(name: "IORing", targets: ["IORing"]),
+        .library(name: "Buffers", targets: ["Buffers"]),
+        .library(name: "JSON", targets: ["JSON"]),
+        .library(name: "HTTP", targets: ["HTTP"]),
+        .library(name: "JWT", targets: ["JWT"]),
+        .library(name: "FastCollections", targets: ["FastCollections"]),
     ],
     traits: [
         .trait(
@@ -63,7 +68,23 @@ let package = Package(
         .target(name: "EventLoop", swiftSettings: [.enableExperimentalFeature("Extern")]),
         // io_uring over its system calls: rings, requests, completions, registered files, provided buffers (Linux).
         .target(name: "IORing", swiftSettings: [.enableExperimentalFeature("Extern")]),
+        // Noncopyable buffers that own their memory: bytes, an array of noncopyable elements, a queue.
+        .target(name: "Buffers", swiftSettings: [.enableExperimentalFeature("Lifetimes")]),
+        // JSON read without building anything, and written 32 bytes at a time.
+        .target(name: "JSON", dependencies: ["Buffers"], swiftSettings: [.enableExperimentalFeature("Lifetimes")]),
+        // HTTP/1.1 requests parsed in place (pipelined, chunked, Expect: 100-continue), and response heads.
+        .target(name: "HTTP", dependencies: ["Buffers"], swiftSettings: [.enableExperimentalFeature("Lifetimes")]),
+        // HS256 JSON Web Tokens verified in place, and strict base64url.
+        .target(name: "JWT", dependencies: ["SHA256", "JSON", "Buffers"],
+                swiftSettings: [.enableExperimentalFeature("Lifetimes")]),
+        // A hash index into the caller's own array of keys, its multiply hasher, and an unstable sort in place.
+        .target(name: "FastCollections"),
         .testTarget(name: "SHA256Tests", dependencies: ["SHA256"]),
+        .testTarget(name: "BuffersTests", dependencies: ["Buffers"]),
+        .testTarget(name: "JSONTests", dependencies: ["JSON", "Buffers"]),
+        .testTarget(name: "HTTPTests", dependencies: ["HTTP", "Buffers"]),
+        .testTarget(name: "JWTTests", dependencies: ["JWT", "Buffers"]),
+        .testTarget(name: "FastCollectionsTests", dependencies: ["FastCollections"]),
         .testTarget(name: "BcryptTests", dependencies: ["Bcrypt"]),
         .testTarget(name: "GzipTests", dependencies: ["Gzip"]),
         .testTarget(name: "CRC32Tests", dependencies: ["CRC32"]),
