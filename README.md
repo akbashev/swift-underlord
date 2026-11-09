@@ -1,5 +1,7 @@
 # swift-underlord
 
+![The underlord: a pixel devil with a trident](assets/underlord.png)
+
 Swift *under load*: what I learned making Swift servers fast on Linux, with no C and no dependencies, and the modules
 that came out of it.
 It comes from building Swift entries for three server benchmarks: many cores against Postgres, a million keep-alive
@@ -116,4 +118,5 @@ inflater of their own.
 ## License
 
 MIT. `Sources/Gzip/Gzip.swift` carries a deflate block header from ISA-L 2.31.1 under Intel's BSD license, with its
-notice.
+notice. The underlord (`assets/`) is a tile from [Kenney](https://www.kenney.nl)'s
+[1-Bit Pack](https://kenney.nl/assets/1-bit-pack) (CC0), recolored and scaled; the banner's letters are from it too.

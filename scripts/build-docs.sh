@@ -32,7 +32,7 @@ done
 # The notes as articles: the README's introduction and findings for the root page, links between notes made DocC links.
 CATALOG="$WORK/Notes.docc"
 mkdir -p "$CATALOG"
-doclinks() { sed -E 's#\]\((docs/)?([a-z0-9-]+)\.md\)#](<doc:\2>)#g; s#\[docs\]\(docs\)#notes#g'; }
+doclinks() { sed -E 's#\]\((docs/)?([a-z0-9-]+)\.md\)#](<doc:\2>)#g; s#\[docs\]\(docs\)#notes#g; s#\]\(assets/#](#g'; }
 {
   echo "# Swift under load"
   echo
@@ -48,6 +48,8 @@ doclinks() { sed -E 's#\]\((docs/)?([a-z0-9-]+)\.md\)#](<doc:\2>)#g; s#\[docs\]\
   for note in "${NOTES[@]}"; do echo "- <doc:$note>"; done
 } > "$CATALOG/Notes.md"
 for note in "${NOTES[@]}"; do doclinks < "docs/$note.md" > "$CATALOG/$note.md"; done
+# Images the README shows, as the catalog's resources (DocC finds them by file name).
+mkdir -p "$CATALOG/Resources" && cp assets/underlord.png "$CATALOG/Resources/"
 
 ARCHIVES=()
 for module in "${MODULES[@]}"; do
