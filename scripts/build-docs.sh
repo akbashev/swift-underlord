@@ -32,7 +32,7 @@ done
 # The notes as articles: the README's introduction and findings for the root page, links between notes made DocC links.
 CATALOG="$WORK/Notes.docc"
 mkdir -p "$CATALOG"
-doclinks() { sed -E 's#\]\((docs/)?([a-z0-9-]+)\.md\)#](<doc:\2>)#g; s#\[docs\]\(docs\)#notes#g; s#\]\(assets/banner\.png\)#](underlord.png)#g; s#\]\(assets/#](#g'; }
+doclinks() { sed -E 's#\]\((docs/)?([a-z0-9-]+)\.md\)#](<doc:\2>)#g; s#\[docs\]\(docs\)#notes#g; /assets\/banner/s#.*#![The underlord, a pixel devil with a trident](underlord.png)#; s#\]\(assets/#](#g'; }
 {
   echo "# Swift under load"
   echo
