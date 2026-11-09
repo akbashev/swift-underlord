@@ -1,6 +1,6 @@
 # swift-underlord
 
-![The underlord: a pixel devil with a trident](assets/underlord.png)
+![swift-underlord, Swift under load: the underlord, a pixel devil with a trident](assets/banner.png)
 
 Swift *under load*: what I learned making Swift servers fast on Linux, with no C and no dependencies, and the modules
 that came out of it.
