@@ -81,8 +81,9 @@ public struct IORing: ~Copyable {
         /// it stays armed, one completion per chunk, until it fails or the buffers run out.
         case receiveProvided(File, group: UInt16, multishot: Bool = false, flags: UInt32 = 0)
         /// Accepts a connection on a listener: a new descriptor, or with `direct` a free slot of the registered table
-        /// (the completion's result). With `multishot` it stays armed, one completion per connection.
-        case accept(File, multishot: Bool = false, direct: Bool = false)
+        /// (the completion's result). With `multishot` it stays armed, one completion per connection; `nonblocking`
+        /// makes the new socket non-blocking (SOCK_NONBLOCK).
+        case accept(File, multishot: Bool = false, direct: Bool = false, nonblocking: Bool = false)
         /// Connects to the socket address at `address`, `length` bytes.
         case connect(File, address: UnsafeRawPointer, length: UInt32)
         /// shutdown(2): `how` is SHUT_RD (0), SHUT_WR (1) or SHUT_RDWR (2).
@@ -91,6 +92,9 @@ public struct IORing: ~Copyable {
         case close(File)
         /// Cancels the request submitted with `userData`.
         case cancel(userData: UInt64)
+        /// Waits until the descriptor reports any of poll(2)'s `events`; the completion's result is the events it
+        /// reported. With `multishot` it stays armed, one completion per wake-up, until it fails or is cancelled.
+        case poll(File, events: UInt32, multishot: Bool = false)
     }
 
     /// How a request is chained to the next one prepared: the next starts when this one completes (`.soft`: and only
@@ -295,12 +299,13 @@ public struct IORing: ~Copyable {
             sqe.bufferGroup = group
             if multishot { sqe.ioprio = ABI.receiveMultishot }
             sqe.opFlags = flags
-        case .accept(let file, let multishot, let direct):
+        case .accept(let file, let multishot, let direct, let nonblocking):
             sqe.opcode = ABI.opAccept
             sqe.setFile(file)
             if multishot { sqe.ioprio = ABI.acceptMultishot }
             // A direct descriptor has no close-on-exec flag (the kernel refuses SOCK_CLOEXEC with a slot).
             if direct { sqe.fileIndex = ABI.fileIndexAlloc } else { sqe.opFlags = ABI.socketCloexec }
+            if nonblocking { sqe.opFlags |= ABI.socketNonblock }
         case .connect(let file, let address, let length):
             sqe.opcode = ABI.opConnect
             sqe.setFile(file)
@@ -320,6 +325,11 @@ public struct IORing: ~Copyable {
             sqe.opcode = ABI.opAsyncCancel
             sqe.fd = -1
             sqe.address = target
+        case .poll(let file, let events, let multishot):
+            sqe.opcode = ABI.opPollAdd
+            sqe.setFile(file)
+            sqe.opFlags = events
+            if multishot { sqe.length = ABI.pollAddMultishot }
         }
     }
 
@@ -534,7 +544,8 @@ extension IORing {
     @usableFromInline static let sqCQOverflow: UInt32 = 1 << 1, sqTaskrun: UInt32 = 1 << 2
     @usableFromInline static let cqeBuffer: UInt32 = 1 << 0, cqeMore: UInt32 = 1 << 1, cqeBufferShift: UInt32 = 16
 
-    @usableFromInline static let opNop: UInt8 = 0, opAccept: UInt8 = 13, opAsyncCancel: UInt8 = 14, opConnect: UInt8 = 16
+    @usableFromInline static let opNop: UInt8 = 0, opPollAdd: UInt8 = 6, opAccept: UInt8 = 13, opAsyncCancel: UInt8 = 14
+    @usableFromInline static let opConnect: UInt8 = 16, pollAddMultishot: UInt32 = 1 << 0
     @usableFromInline static let opClose: UInt8 = 19, opRead: UInt8 = 22, opWrite: UInt8 = 23
     @usableFromInline static let opSend: UInt8 = 26, opReceive: UInt8 = 27, opShutdown: UInt8 = 34
     @usableFromInline static let sqeFixedFile: UInt8 = 1 << 0, sqeLink: UInt8 = 1 << 2, sqeHardLink: UInt8 = 1 << 3
@@ -543,6 +554,7 @@ extension IORing {
     @usableFromInline static let fileIndexAlloc = UInt32.max
     // sys/socket.h: MSG_NOSIGNAL (a send to a closed peer fails with EPIPE, no SIGPIPE), and SOCK_CLOEXEC for accepts.
     @usableFromInline static let messageNoSignal: UInt32 = 0x4000, socketCloexec: UInt32 = 0o2000000
+    @usableFromInline static let socketNonblock: UInt32 = 0o4000
 
     @usableFromInline static let registerFiles2 = 13, registerBufferRing = 22, registerUnregisterBufferRing = 23
     @usableFromInline static let resourceRegisterSparse: UInt32 = 1 << 0

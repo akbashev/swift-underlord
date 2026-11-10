@@ -56,6 +56,24 @@ func completions(_ ring: inout IORing, through userData: UInt64) -> [IORing.Comp
     #expect(Array(received.prefix(message.count)) == message)
 }
 
+@Test(.timeLimit(.minutes(1))) func multishotPollReportsEachWakeUp() throws {
+    var ring = try IORing(entries: 8, options: .singleThread)
+    var fds: [Int32] = [0, 0]
+    #expect(pipe(&fds) == 0)
+    defer { close(fds[0]); close(fds[1]) }
+    ring.prepare(.poll(.descriptor(fds[0]), events: UInt32(POLLIN), multishot: true), userData: 9)
+    var reported: [IORing.Completion] = []
+    for _ in 0..<2 {
+        var byte: UInt8 = 1
+        #expect(write(fds[1], &byte, 1) == 1)
+        reported += completions(&ring, through: 9)
+        // Drained, so the next write is a new wake-up.
+        #expect(read(fds[0], &byte, 1) == 1)
+    }
+    #expect(reported.count == 2)
+    #expect(reported.allSatisfy { $0.result & Int32(POLLIN) != 0 && $0.hasMore })
+}
+
 @Test(.timeLimit(.minutes(1))) func acceptReceiveSendAndCloseOverLoopback() throws {
     var ring = try IORing(entries: 16, options: .singleThread)
     try ring.registerFiles(count: 4)
