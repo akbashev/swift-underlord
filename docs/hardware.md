@@ -102,10 +102,30 @@ var page: Page {                 // on the cursor that owns it
 
 The offsets are the pinned C version's; check them at startup against what the C library itself returns (where a
 cell is, a count taken both ways) and fall back if they don't match. Span's bounds checks are preconditions, which
-`-Ounchecked` removes: the disassembly of the hot loop had no trap instruction left.
+`-Ounchecked` removes: the disassembly of the hot loop had no trap instruction left. With the checks on (plain `-O`)
+they stay; what that costs a whole server is unmeasured here, since the one box run of a build with them on scored the
+same as a build that only took work out, on the same day (see [measuring](measuring.md)).
 
 ## SQLite drops a connection's cache when another one commits
 
 At the start of each transaction, a WAL connection that sees a commit from another connection empties its whole page
 cache. A checkpointer on its own connection that commits (to start the WAL over, say) costs the main connection its
 cache every time. Let the checkpointer only copy, and let the main connection's own next write start the WAL over.
+
+## A checkpoint that doesn't finish leaves its sync for later
+
+SQLite syncs the database file only when a checkpoint has copied every frame of the WAL. Under steady writes a PASSIVE
+checkpoint rarely gets there: it copies most of the WAL, writes those pages, and returns without syncing them. The copy
+that does finish, the one that holds writes so it can catch up, then syncs everything the earlier copies wrote while
+the writes wait. On a slow disk the hold ran out before the sync did, the WAL kept growing, and p99 passed a second.
+
+What fixed it, on the checkpointer's own thread: copy while writes go on until at most 128 frames are left, sync the
+database file yourself (`fdatasync`), copy once more, and sync again. The copy that holds writes then has a few dozen
+frames to copy and little to sync. Two more things helped. Grow the file 64 MiB at a time (`SQLITE_FCNTL_CHUNK_SIZE`,
+with `HAVE_POSIX_FALLOCATE` so it is one `posix_fallocate`), so a finished copy's truncate and sync don't also wait on
+the file system's journal. And run the checkpointer at nice 5: at nice 19, near saturation, it got so little of the one
+CPU that holds ran out.
+
+On a runner with the server's disk capped at 30 MB/s and 1,000 writes a second, near saturation: p99 went from 1.4 s
+to 250 ms, the WAL from 310 MB to 50 MB, the memory peak from 821 MB to 406 MB, and the holds that ran out from most to
+about one in five.

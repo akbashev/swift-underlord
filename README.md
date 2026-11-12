@@ -67,7 +67,8 @@ runners as well as locally, and the [docs](docs) have the numbers.
 16. **`nonisolated async` hops off the actor** unless it is `nonisolated(nonsending)`; in an executor that made a
     lost wake-up. [concurrency](docs/concurrency.md)
 17. **Measure where it fails.** Loopback hides the receiving side's cost, and tails (a checkpoint's write hold) show
-    only at saturation. [measuring](docs/measuring.md)
+    only at saturation. Near it, a busier server is charged more of the kernel's network work, so compare at equal
+    idle; and Hyper-V runners hid what a KVM guest showed. [measuring](docs/measuring.md)
 
 **Above all**
 

@@ -71,6 +71,38 @@ request by direction (iptables counters on the port) before blaming the network.
 A checkpoint that holds writes for up to a second didn't show at 60–80% CPU on a runner's fast disk. At 100% it set
 p99: 456 ms with a 1 s cap on the hold, 251 ms with 250 ms. Run the comparison at the load where the real test fails.
 
+## One run on the target machine can't resolve small changes
+
+The $12 box scored each build once. A follow-up that was 0.2–0.5 µs per request cheaper on runners held 240,000 users
+against the original's 300,000, and a second follow-up, with Swift's checks turned back on, held the same 240,000 that
+day. Two opposite changes landing on one number is the box's day, not the code: the original's p99 had already been
+942 ms against a 1 s limit, so a slightly worse day turns a pass into a fail. Decide changes of a few percent before
+the box, in repeated rounds within one job, and take the box's number as one sample.
+
+## CPU per request depends on how busy the server is
+
+Ubuntu 24.04's kernel (6.8) is built without `CONFIG_IRQ_TIME_ACCOUNTING`, so the kernel's receive work (softirq) is
+charged to whatever task is running when it runs. A server that leaves the CPU idle more often has more of that work
+charged to the idle task; a busier one has it charged to itself. In a KVM guest shaped like the $12 box, the same
+server measured 20.8 µs per request in its own cgroup at 270,000 users (30% idle) and 22.0–22.3 µs at 300,000 (18%
+idle). User time stayed at 4.5–4.6 µs; the rest was kernel time. A busy guest also takes each interrupt as an exit to
+the hypervisor, where an idle one is only woken by it.
+
+So a server's CPU per request, measured at its own limit, mixes its code with how close to the limit it ran. Compare
+servers at the same idle share, or by the whole machine's busy time per request.
+
+## Hyper-V hides what KVM shows
+
+GitHub's runners (Azure) and WSL2 both run on Hyper-V, and costs that showed only on the $12 box, a KVM guest, didn't
+show on either. A KVM guest on a desktop did show them: QEMU inside WSL2 (nested virtualization; `/dev/kvm` is there),
+Ubuntu's cloud image with its 6.8 kernel, 1 vCPU and 2 GB, `virtio-net` on a tap device moved into the load
+generator's network namespace. It needed two settings. The guest's receive ring at 1,024 entries (`rx_queue_size`)
+and the tap's queue at 10,000 packets: the defaults, 256 and 1,000, dropped the load generator's bursts, and p99 went
+to seconds with the guest 70% idle. And the vCPU thread pinned to a core of its own, with QEMU's other threads on
+another (vhost's worker included, which on recent kernels is a thread of QEMU's). On the host, `perf kvm stat` counts
+the exits by reason; it prints its report to stderr. Nested, an exit costs more than on the real box (a device
+notification about 16 µs), which exaggerates exactly the costs the guest is there to find.
+
 ## Read the other implementation first
 
 When another implementation is faster, read all of it, build scripts included, before profiling. Here the profiles
