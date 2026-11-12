@@ -53,12 +53,26 @@ private func bytes(_ buffer: borrowing ByteBuffer) -> [UInt8] {
     #expect(read == 1 && bytes(buffer) == Array("<ab>!".utf8))
 }
 
+@Test func byteBufferLendsRoomToALaterRead() {
+    var buffer = ByteBuffer()
+    buffer.append("ab")
+    let room = buffer.spare(minimum: 100)
+    #expect(room.count >= 100 && room.count == buffer.capacity - buffer.count && buffer.count == 2)
+    // The read lands after the call returns, as a ring's receive does.
+    room[0] = 0x63
+    room[1] = 0x64
+    buffer.commit(2)
+    #expect(bytes(buffer) == Array("abcd".utf8))
+    #expect(buffer.spare(minimum: 0).count == buffer.capacity - buffer.count)
+}
+
 @Test func noRoomOnAnEmptyBuffer() {
     // Nothing allocated yet, so there is no end to point at: asking for no room must not need one.
     var buffer = ByteBuffer()
     buffer.append(maximum: 0) { _ in }
     let read = buffer.appendSpare(maximum: 0) { $0.count }
     #expect(read == 0 && buffer.isEmpty && buffer.capacity == 0)
+    #expect(buffer.spare(minimum: 0).count == 0 && buffer.capacity == 0)
 }
 
 /// Counts how many are alive, to check that `UniqueArray` ends each element exactly once.

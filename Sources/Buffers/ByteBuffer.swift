@@ -106,6 +106,22 @@ public struct ByteBuffer: ~Copyable {
         return n
     }
 
+    /// Lends all the room past the end, at least `minimum` bytes of it, to a read that lands there later (an io_uring
+    /// receive into the buffer); `commit(_:)` keeps what it wrote. Nothing may change the buffer in between: an append
+    /// could grow it and move the bytes away from the read. For no room on a buffer that never allocated, an empty
+    /// buffer.
+    @inlinable public mutating func spare(minimum: Int) -> UnsafeMutableRawBufferPointer {
+        if _count + minimum > _capacity { grow(to: _count + minimum) }
+        guard let base else { return UnsafeMutableRawBufferPointer(start: nil, count: 0) }
+        return UnsafeMutableRawBufferPointer(start: base + _count, count: _capacity - _count)
+    }
+
+    /// Keeps the `n` bytes a read wrote into the room `spare(minimum:)` lent.
+    @inlinable public mutating func commit(_ n: Int) {
+        precondition(n >= 0 && _count + n <= _capacity, "ByteBuffer commit past its capacity")
+        _count += n
+    }
+
     /// Lets `body` write up to `maximum` bytes past the end through an `OutputRawSpan` over that room (whose appends
     /// check the room left), and keeps what it wrote: a whole response in one reservation.
     @inlinable @inline(__always)
